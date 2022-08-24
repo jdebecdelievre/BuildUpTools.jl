@@ -33,13 +33,3 @@ function Base.:(+)(a::InertialElement{T1} where T1, b::InertialElement{T2} where
     return InertialElement(mass, xcg, ycg, zcg, Ixx, Iyy, Izz)
 end
 InertiaBuildUp(name::Symbol) = BuildUp(name, InertialElement())
-
-
-# Obtain the tree for only one of the dimensions (for instance mass) by running: `mass(tree)`
-function innertree(tree::BuildUp{InertialElement{T}} where T, property::Symbol)
-    node = BuildUp(tree.name, getproperty(tree.value, property)) 
-    for c = values(tree.children)
-        node[c.name] = innertree(c, property)
-    end
-    node
-end

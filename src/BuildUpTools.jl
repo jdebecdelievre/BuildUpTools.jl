@@ -3,7 +3,8 @@ using Base
 using AbstractTrees
 
 include("buildup.jl")
-export BuildUp
+export BuildUp, NoBuildUp, OptionalBuildUp
+export @addnode, @addbranch, addnode, sumall!, headnode, nodetype, innertree
 
 include("inertia.jl")
 export InertiaBuildUp, InertialElement

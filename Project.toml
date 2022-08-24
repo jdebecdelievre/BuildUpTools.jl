@@ -3,6 +3,9 @@ uuid = "797cb8bf-6526-4f39-99c8-2e9332bec8cb"
 authors = ["Jean de_Becdelievre <jeanbecdelievre@gmail.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+
 [compat]
 julia = "1"
 

@@ -2,8 +2,6 @@
 Simple tree structure that allows to build drag and mass buildups easily.
 Main constructor:
     tree = BuildUp(name, value)
-    OR a shortcut 
-    tree = BuildUp(name, value)
 Supports:
     - get child: child = tree[name]
     - add node from name, value: tree[name] = value
@@ -28,7 +26,6 @@ mutable struct BuildUp{T}
     end
 end
 
-const NoBuildUp = BuildUp(:NoBuildUp, nothing)
 Base.getindex(tree::BuildUp{T} where T, c::Symbol) = tree.children[c]
 Base.setindex!(tree::BuildUp{T}, child::BuildUp{T}, name::Symbol) where T = setindex!(tree.children, child, name)
 branch(tree::BuildUp, c::Symbol) = tree.children[c]
@@ -37,9 +34,9 @@ addnode(tree::BuildUp{T}, name::Symbol, value::T=tree.value) where T = (tree.chi
 
 # Pretty printing. AbstractTrees only used for printing, dependency could be removed if necessary
 AbstractTrees.printnode(io::IO, node::BuildUp) = print(io, "$(node.name): $(node.value)")
-AbstractTrees.children(itree::BuildUp) = itree.children
+AbstractTrees.children(itree::BuildUp) = values(itree.children)
 AbstractTrees.nodetype(::BuildUp) = BuildUp
-Base.show(io::IO, tree::BuildUp) = print_tree(io, tree, 3) # using depth of 3
+Base.show(io::IO, tree::BuildUp) = print_tree(io, tree, depth=3) # using depth of 3
 
 # Summation routine
 function sumall!(tree::BuildUp)
@@ -48,6 +45,18 @@ function sumall!(tree::BuildUp)
     end
     return tree.value
 end
+
+"""
+Options for skipping buildup.
+Example function signature:
+    function f(inputs, buildup::OptionalBuildUp{T}=NoBuildUp)
+        ...
+    end
+T is the type of the "value" field in your BuildUp, which could be a custom type (see InertialElement for an example)
+"""
+const NoBuildUp = BuildUp(:NoBuildUp, nothing)
+const OptionalBuildUp{T} = Union{BuildUp{Nothing},BuildUp{T}}
+Base.show(io::IO, tree::BuildUp{Nothing}) = Base.show(io,nothing)
 
 # Duplicate all methods to make sure logging is ignored if necessary
 Base.getindex(tn::BuildUp{<:Nothing}, ::Symbol) = nothing
@@ -67,7 +76,7 @@ Add one or more children to the tree whose names are v1,v2,..., and value are th
 Return newly created node, or nothing if tree was of type Nothing.
 """
 macro addnode(tree, V...)
-    T = Expr(:block, Tuple(:(addnode($tree, $(Expr(:quote, v)), $v)) for v=V)...)
+    T = Expr(:block, Tuple(:(BuildUpTools.addnode($tree, $(Expr(:quote, v)), $v)) for v=V)...)
     esc(T)
 end
 
@@ -81,7 +90,23 @@ Returns root node of subtree, or nothing if tree was of type Nothing.
 """
 macro addbranch(tree, V)
     esc(quote
-        vr = addnode($tree, $(V.args)[1], ($tree).value)
+        vr = BuildUpTools.addnode($tree, $(V.args)[1], ($tree).value)
         @addnode vr $(V.args[2:end]...)
     end)
+end
+
+"""
+```julia_skip
+innertree(tree, :mass)
+```
+When a custom type T was created for the "value" field of Buildup{T}, where T have several fields (such as mass), this function
+returns the tree for only one of the dimensions (for instance mass).
+See InertiaBuildUp for an example of custom T.
+"""
+function innertree(tree::BuildUp{T} where T, property::Symbol)
+    node = BuildUp(tree.name, getproperty(tree.value, property)) 
+    for c = values(tree.children)
+        node[c.name] = innertree(c, property)
+    end
+    node
 end
