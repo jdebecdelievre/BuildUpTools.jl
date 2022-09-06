@@ -38,13 +38,56 @@ AbstractTrees.children(itree::BuildUp) = values(itree.children)
 AbstractTrees.nodetype(::BuildUp) = BuildUp
 Base.show(io::IO, tree::BuildUp) = print_tree(io, tree, depth=3) # using depth of 3
 
-# Summation routine
-function sumall!(tree::BuildUp)
+# Reduction operations
+function reduce!(op, tree::BuildUp)
     if ~isempty(tree.children)
-        tree.value = sum(sumall!(node) for node=values(tree.children))
+        if length(tree.children)==1
+            child = iterate(values(tree.children))[1]
+            tree.value = reduce!(op, child)
+        else
+            tree.value = op((reduce!(op, node) for node=values(tree.children))...)
+        end
     end
     return tree.value
 end
+sumall!(tree::BuildUp) = reduce!(+,tree)
+maxall!(tree::BuildUp) = reduce!(max,tree)
+minall!(tree::BuildUp) = reduce!(min,tree)
+
+"""
+Binary operations on build-ups (+, -, max, min).
+Both trees must be strictly identical: structure, names, and orders in which keys were added (that's due to the underlying use of dictionaries).
+"""
+function oper(op, t1::BuildUp{T}, t2::BuildUp{T}) where T
+    if t1.name != t2.name
+        raise("Both trees are not identical. Mismatch $(t1.name) =/= $(t2.name)")
+    end
+    tnew = BuildUp(t1.name, op(t1.value, t2.value))
+    children = keys(t1.children) 
+    if children == keys(t2.children)
+        for child in children
+            tnew[child] = oper(op, t1[child], t2[child])
+        end
+    end
+    return tnew
+end
+Base.:+(t1::BuildUp{T}, t2::BuildUp{T})  where T = oper(+, t1, t2)
+Base.:-(t1::BuildUp{T}, t2::BuildUp{T})  where T = oper(-, t1, t2)
+Base.max(t1::BuildUp{T}, t2::BuildUp{T}) where T = oper(max, t1, t2)
+Base.min(t1::BuildUp{T}, t2::BuildUp{T}) where T = oper(min, t1, t2)
+
+"""
+Multiplication by a scalar.
+Note that the underlying type T in BuildUp{T} must have defined a multiplication by a scalar.
+"""
+function Base.:*(tree::BuildUp{T} where T, α::Number)
+    tnew = BuildUp(tree.name, tree.value * α)
+    for child=keys(tree.children)
+        tnew[child] = tree[child]* α
+    end
+    return tnew
+end
+Base.:*(α::Number, tree::BuildUp{T}  where T) = tree*α
 
 """
 Options for skipping buildup.
@@ -65,7 +108,7 @@ addnode(tn::BuildUp{<:Nothing}, ::Symbol, ::Any) = tn
 addnode(tn::BuildUp{T}, ::Symbol, ::T) where T<:Nothing = tn
 branch(::BuildUp{<:Nothing}, ::Symbol) = nothing
 headnode(tn::BuildUp{<:Nothing}) = tn
-sumall!(tn::BuildUp{<:Nothing}) = tn
+reduce!(op,tn::BuildUp{<:Nothing}) = nothing
 
 ## Macros for convenience
 """
