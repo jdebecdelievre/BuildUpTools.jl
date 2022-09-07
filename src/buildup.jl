@@ -59,9 +59,6 @@ Binary operations on build-ups (+, -, max, min).
 Both trees must be strictly identical: structure, names, and orders in which keys were added (that's due to the underlying use of dictionaries).
 """
 function oper(op, t1::BuildUp{T}, t2::BuildUp{T}) where T
-    if t1.name != t2.name
-        raise("Both trees are not identical. Mismatch $(t1.name) =/= $(t2.name)")
-    end
     tnew = BuildUp(t1.name, op(t1.value, t2.value))
     children = keys(t1.children) 
     if children == keys(t2.children)
