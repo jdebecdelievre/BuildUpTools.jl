@@ -28,9 +28,22 @@ end
 
 Base.getindex(tree::BuildUp{T} where T, c::Symbol) = tree.children[c]
 Base.setindex!(tree::BuildUp{T}, child::BuildUp{T}, name::Symbol) where T = setindex!(tree.children, child, name)
+Base.setindex!(tree::BuildUp{T}, child::T, name::Symbol) where T = setindex!(tree.children, BuildUp(name,child), name)
 branch(tree::BuildUp, c::Symbol) = tree.children[c]
 headnode(tree::BuildUp) = BuildUp(tree.name, tree.value) # cuts off depth
-addnode(tree::BuildUp{T}, name::Symbol, value::T=tree.value) where T = (tree.children[name]=BuildUp(name,value))
+function addnode(tree::BuildUp{T}, name::Symbol, value::T=tree.value; index::Union{Nothing,Int64}=nothing) where T
+    name = isa(index, Nothing) ? name : Symbol("$(name)$index")
+    tree.children[name]=BuildUp(name ,value)
+end
+
+function Base.copy(tree::BuildUp)
+    tnew = BuildUp(tree.name, tree.value)
+    children = keys(tree.children) 
+    for child in children
+        tnew[child] = copy(tree[child])
+    end
+    return tnew
+end
 
 # Pretty printing. AbstractTrees only used for printing, dependency could be removed if necessary
 AbstractTrees.printnode(io::IO, node::BuildUp) = print(io, "$(node.name): $(node.value)")
@@ -70,21 +83,41 @@ function oper(op, t1::BuildUp{T}, t2::BuildUp{T}) where T
 end
 Base.:+(t1::BuildUp{T}, t2::BuildUp{T})  where T = oper(+, t1, t2)
 Base.:-(t1::BuildUp{T}, t2::BuildUp{T})  where T = oper(-, t1, t2)
+Base.:*(t1::BuildUp{T}, t2::BuildUp{T})  where T = oper(*, t1, t2)
+Base.:/(t1::BuildUp{T}, t2::BuildUp{T})  where T = oper(/, t1, t2)
 Base.max(t1::BuildUp{T}, t2::BuildUp{T}) where T = oper(max, t1, t2)
 Base.min(t1::BuildUp{T}, t2::BuildUp{T}) where T = oper(min, t1, t2)
 
-"""
-Multiplication by a scalar.
-Note that the underlying type T in BuildUp{T} must have defined a multiplication by a scalar.
-"""
-function Base.:*(tree::BuildUp{T} where T, α::Number)
-    tnew = BuildUp(tree.name, tree.value * α)
-    for child=keys(tree.children)
-        tnew[child] = tree[child]* α
+function  Base.:^(tree::BuildUp{T}, n::Integer) where T 
+    if n<1
+        raise("Error: nonpositive power undefined for BuildUp trees")
+    elseif n==1
+        return tree
+    else
+        return tree * (tree)^(n-1)
     end
-    return tnew
 end
-Base.:*(α::Number, tree::BuildUp{T}  where T) = tree*α
+
+"""
+Apply similar operation to all elements
+"""
+function scalar_oper!(op!, t::BuildUp{T} where T)
+    t.value = op!(t.value)
+    for tc=values(t.children)
+        scalar_oper!(op!,tc)
+    end
+    return t
+end
+scalar_oper(op, tree::BuildUp{T} where T) = scalar_oper!(op, copy(tree))
+
+"""
+Binary operation between BuildUp{T} and object type T, or a Number (e.g multiplication by a scalar).
+Note that the underlying type T in BuildUp{T} must have defined a the operation between T and T, T and a scalar.
+"""
+Base.:*(α::Union{T,Number}, tree::BuildUp{T}) where T = scalar_oper(t->α*t, tree)
+Base.:*(tree::BuildUp{T}, α::Union{T,Number}) where T = scalar_oper(t->t*α, tree)
+Base.:/(α::Number, tree::BuildUp{T}  where T) = tree*(1/α)
+Base.:/(tree::BuildUp{T}  where T, α::Number) = tree*(1/α)
 
 """
 Options for skipping buildup.
@@ -101,11 +134,13 @@ Base.show(io::IO, tree::BuildUp{Nothing}) = Base.show(io,nothing)
 # Duplicate all methods to make sure logging is ignored if necessary
 Base.getindex(tn::BuildUp{<:Nothing}, ::Symbol) = nothing
 Base.setindex!(tn::BuildUp{<:Nothing}, ::Any, ::Symbol) = tn
-addnode(tn::BuildUp{<:Nothing}, ::Symbol, ::Any) = tn
-addnode(tn::BuildUp{T}, ::Symbol, ::T) where T<:Nothing = tn
+addnode(tn::BuildUp{<:Nothing}, ::Symbol, ::Any; index::Union{Nothing,Int64}=nothing) = tn
+addnode(tn::BuildUp{T}, ::Symbol, ::T; index::Union{Nothing,Int64}=nothing) where T<:Nothing = tn
 branch(::BuildUp{<:Nothing}, ::Symbol) = nothing
 headnode(tn::BuildUp{<:Nothing}) = tn
 reduce!(op,tn::BuildUp{<:Nothing}) = nothing
+oper!(::BuildUp{T} where T,::BuildUp{<:Nothing}) = nothing
+oper!(::BuildUp{<:Nothing}, ::BuildUp{T} where T) = nothing
 
 ## Macros for convenience
 """
