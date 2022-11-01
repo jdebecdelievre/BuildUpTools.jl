@@ -14,12 +14,12 @@ struct InertialElement{TF}
     Iyz::TF
     Izx::TF
 end
-InertialElement(mass=0., xcg=mass*0., ycg=mass*0., zcg=mass*0., 
-                         Ixx=mass*0., Iyy=mass*0., Izz=mass*0.,
-                         Ixy=mass*0., Iyz=mass*0., Izx=mass*0.) = InertialElement(promote(mass, xcg, ycg, zcg, Ixx, Iyy, Izz, Ixy, Iyz, Izx)...)
+InertialElement(mass=0., xcg=zero(mass), ycg=zero(mass), zcg=zero(mass), 
+                         Ixx=zero(mass), Iyy=zero(mass), Izz=zero(mass),
+                         Ixy=zero(mass), Iyz=zero(mass), Izx=zero(mass)) = InertialElement(promote(mass, xcg, ycg, zcg, Ixx, Iyy, Izz, Ixy, Iyz, Izx)...)
 
 Base.copy(IE::InertialElement) = InertialElement(IE.mass, IE.xcg, IE.ycg, IE.zcg, IE.Ixx, IE.Iyy, IE.Izz, IE.Ixy, IE.Iyz, IE.Izx)
-
+Base.zero(::Union{Type{InertialElement{T}},InertialElement{T}}) where {T} = InertialElement(zero(T))
 Base.show(io::IO, IE::InertialElement) = Base.show(io, tuple(IE.mass, IE.xcg, IE.ycg, IE.zcg, IE.Ixx, IE.Iyy, IE.Izz, IE.Ixy, IE.Iyz, IE.Izx))
 
 """

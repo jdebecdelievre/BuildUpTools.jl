@@ -52,7 +52,8 @@ AbstractTrees.nodetype(::BuildUp) = BuildUp
 Base.show(io::IO, tree::BuildUp) = print_tree(io, tree, depth=3) # using depth of 3
 
 # Reduction operations
-function reduce!(op, tree::BuildUp)
+function reduce!(op, tree::BuildUp{T}, root::Bool=false) where T
+    root && (tree.value = zero(T))
     if ~isempty(tree.children)
         if length(tree.children)==1
             child = iterate(values(tree.children))[1]
@@ -63,9 +64,9 @@ function reduce!(op, tree::BuildUp)
     end
     return tree.value
 end
-sumall!(tree::BuildUp) = reduce!(+,tree)
-maxall!(tree::BuildUp) = reduce!(max,tree)
-minall!(tree::BuildUp) = reduce!(min,tree)
+sumall!(tree::BuildUp) = reduce!(+,tree,true)
+maxall!(tree::BuildUp) = reduce!(max,tree,true)
+minall!(tree::BuildUp) = reduce!(min,tree,true)
 
 """
 Binary operations on build-ups (+, -, max, min).
@@ -116,8 +117,8 @@ Note that the underlying type T in BuildUp{T} must have defined a the operation 
 """
 Base.:*(α::Union{T,Number}, tree::BuildUp{T}) where T = scalar_oper(t->α*t, tree)
 Base.:*(tree::BuildUp{T}, α::Union{T,Number}) where T = scalar_oper(t->t*α, tree)
-Base.:/(α::Number, tree::BuildUp{T}  where T) = tree*(1/α)
 Base.:/(tree::BuildUp{T}  where T, α::Number) = tree*(1/α)
+Base.:/(α::Number, tree::BuildUp{T}  where T) = scalar_oper(t->α/t, tree)
 
 """
 Options for skipping buildup.
@@ -138,7 +139,7 @@ addnode(tn::BuildUp{<:Nothing}, ::Symbol, ::Any; index::Union{Nothing,Int64}=not
 addnode(tn::BuildUp{T}, ::Symbol, ::T; index::Union{Nothing,Int64}=nothing) where T<:Nothing = tn
 branch(::BuildUp{<:Nothing}, ::Symbol) = nothing
 headnode(tn::BuildUp{<:Nothing}) = tn
-reduce!(op,tn::BuildUp{<:Nothing}) = nothing
+reduce!(op,tn::BuildUp{<:Nothing}, root::Bool=false) = nothing
 oper!(::BuildUp{T} where T,::BuildUp{<:Nothing}) = nothing
 oper!(::BuildUp{<:Nothing}, ::BuildUp{T} where T) = nothing
 
