@@ -29,11 +29,13 @@ end
 Base.getindex(tree::BuildUp{T} where T, c::Symbol) = tree.children[c]
 Base.setindex!(tree::BuildUp{T}, child::BuildUp{T}, name::Symbol) where T = setindex!(tree.children, child, name)
 Base.setindex!(tree::BuildUp{T}, child::T, name::Symbol) where T = setindex!(tree.children, BuildUp(name,child), name)
+Base.setindex!(tree::BuildUp{T}, child::Tv, name::Symbol) where {T,Tv} = setindex!(tree.children, BuildUp(name,T(child)), name)
 branch(tree::BuildUp, c::Symbol) = tree.children[c]
 headnode(tree::BuildUp) = BuildUp(tree.name, tree.value) # cuts off depth
-function addnode(tree::BuildUp{T}, name::Symbol, value::T=tree.value; index::Union{Nothing,Int64}=nothing) where T
+function addnode(tree::BuildUp{T}, name::Symbol, value::Tv=tree.value; index::Union{Nothing,Int64}=nothing) where {T,Tv}
     name = isa(index, Nothing) ? name : Symbol("$(name)$index")
-    tree.children[name]=BuildUp(name ,value)
+    (T!=Tv) && (value=T(value))
+    tree.children[name]=BuildUp(name, value)
 end
 
 function Base.copy(tree::BuildUp)
@@ -110,6 +112,7 @@ function scalar_oper!(op!, t::BuildUp{T} where T)
     return t
 end
 scalar_oper(op, tree::BuildUp{T} where T) = scalar_oper!(op, copy(tree))
+# (op::Function)(tree::BuildUp{T} where T) = scalar_oper!(op, copy(tree)) # not working
 
 """
 Binary operation between BuildUp{T} and object type T, or a Number (e.g multiplication by a scalar).
